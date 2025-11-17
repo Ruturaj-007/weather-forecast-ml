@@ -1,2 +1,5 @@
-pandas
 gradio
+pandas
+numpy
+scikit-learn
+joblib
