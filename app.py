@@ -320,7 +320,7 @@ hr {
 """
 
 
-# ---------- UI Layout ----------
+# --------- UI Layout ---------
 with gr.Blocks(css=css, title="SmartWeather - ML Temperature Forecasting") as demo:
 
     with gr.Column(elem_id="main-card"):
