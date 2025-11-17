@@ -1,4 +1,4 @@
-import streamlit as st
+import gradio as gr
 import pandas as pd
 import joblib
 import numpy as np
@@ -9,60 +9,58 @@ def load_model(path):
     try:
         return joblib.load(path)
     except Exception as e:
-        st.error(f"Cannot load model {path}: {e}")
-        return None
+        return f"Cannot load model {path}: {e}"
 
 # ---------- Load Model ----------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 model = load_model(os.path.join(BASE_DIR, "rf_model_compressed.pkl"))
 
 
-# ---------- Page Configuration ----------
-st.set_page_config(page_title="Weather Prediction", page_icon="🌦", layout="centered")
+# ---------- Prediction Function ----------
+def predict_weather(avg_humidity, avg_cloudcover, avg_windspeedKmph, total_precipMM):
+    if isinstance(model, str):
+        return model  # error string
+    
+    X_input = pd.DataFrame([[avg_humidity, avg_cloudcover, avg_windspeedKmph, total_precipMM]],
+                           columns=['avg_humidity', 'avg_cloudcover', 'avg_windspeedKmph', 'total_precipMM'])
+    
+    pred = model.predict(X_input)[0]
 
-# ---------- Title ----------
-st.markdown("<h1 style='text-align:center; color:#7728b0;'>🌦 Weather Prediction Dashboard</h1>", unsafe_allow_html=True)
-st.write("Enter weather parameters on the left to predict the temperature.")
+    message = f"🌡 Predicted Temperature: {pred:.2f} °C\n\n"
 
-# ---------- Sidebar Inputs ----------
-st.sidebar.header("Input Weather Parameters")
-
-avg_humidity = st.sidebar.slider("Humidity (%)", 0.0, 100.0, 60.0)
-avg_cloudcover = st.sidebar.slider("Cloud Cover (%)", 0.0, 100.0, 40.0)
-avg_windspeedKmph = st.sidebar.slider("Wind Speed (Kmph)", 0.0, 200.0, 10.0)
-total_precipMM = st.sidebar.number_input("Precipitation (mm)", min_value=0.0, max_value=1000.0, value=5.0)
-
-# ---------- Input Summary ----------
-st.subheader("Input Summary")
-st.write(pd.DataFrame({
-    "Feature": ["avg_humidity", "avg_cloudcover", "avg_windspeedKmph", "total_precipMM"],
-    "Value": [avg_humidity, avg_cloudcover, avg_windspeedKmph, total_precipMM]
-}))
-
-# ---------- Prediction Section ----------
-if st.button("Predict 🌤"):
-    if model is None:
-        st.error("❌ Model not loaded. Please ensure the file is in the same folder.")
+    if pred > 35:
+        message += "☀ Hot day predicted — stay hydrated!"
+    elif pred < 20:
+        message += "🧥 Cool day predicted — you may need a jacket."
     else:
-        # Prepare input
-        X_input = pd.DataFrame([[avg_humidity, avg_cloudcover, avg_windspeedKmph, total_precipMM]],
-                               columns=['avg_humidity', 'avg_cloudcover', 'avg_windspeedKmph', 'total_precipMM'])
-        
-        # Display processing message
-        with st.spinner('Running prediction...'):
-            pred = model.predict(X_input)[0]
+        message += "🌤 Moderate temperature predicted."
 
-        # Display results
-        st.success(f"🌡 Predicted Temperature: *{pred:.2f} °C*")
+    return message
 
-        # Feedback message
-        if pred > 35:
-            st.warning("☀ Hot day predicted — stay hydrated!")
-        elif pred < 20:
-            st.info("🧥 Cool day predicted — you may need a jacket.")
-        else:
-            st.success("🌤 Moderate temperature predicted.")
 
-# ---------- Footer ----------
-st.markdown("---")
-st.caption("This weather prediction tool uses data-driven algorithms trained in Google Colab.")
+# ---------- UI ----------
+with gr.Blocks(title="Weather Prediction", theme="soft") as demo:
+    gr.Markdown("<h1 style='text-align:center; color:#7728b0;'>🌦 Weather Prediction Dashboard</h1>")
+    gr.Markdown("Enter weather parameters to predict the temperature.")
+
+    with gr.Row():
+        avg_humidity = gr.Slider(0, 100, value=60, label="Humidity (%)")
+        avg_cloudcover = gr.Slider(0, 100, value=40, label="Cloud Cover (%)")
+    
+    with gr.Row():
+        avg_windspeedKmph = gr.Slider(0, 200, value=10, label="Wind Speed (Kmph)")
+        total_precipMM = gr.Number(value=5.0, label="Precipitation (mm)")
+
+    predict_btn = gr.Button("Predict 🌤")
+    output = gr.Textbox(label="Prediction Output")
+
+    predict_btn.click(
+        predict_weather,
+        inputs=[avg_humidity, avg_cloudcover, avg_windspeedKmph, total_precipMM],
+        outputs=output
+    )
+
+    gr.Markdown("---")
+    gr.Markdown("This weather prediction tool uses a machine learning model trained in Google Colab.")
+
+demo.launch()
